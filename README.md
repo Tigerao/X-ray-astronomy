@@ -8,7 +8,7 @@
 bash acis_course_modular.sh all 23603
 ```
 
-This generates required files in:
+This generates required old-style files in:
 
 - `/data/home/tiger/chandra/course/merge_data/xdata/all_bcc_23603_reproj_evt.fits`
 - `/data/home/tiger/chandra/course/merge_data/xdata/reproj_psf90_23603_500_8000.fits`

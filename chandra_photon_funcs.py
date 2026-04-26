@@ -198,7 +198,7 @@ def _save_photons(outfile, time, energy, obsid):
     np.savetxt(outfile, arr, fmt="%.7f  %.3f  %d")
 
 
-def extract_source_photons(evtfile, regfile, outfile, obsid, emin=300, emax=8000):
+def extract_source_photons(evtfile, regfile, outfile, obsid, emin=500, emax=8000):
     """Extract source photons inside circular region and energy range."""
     x0, y0, r = read_circle_region(regfile)
     time, x, y, energy = _load_event_columns(evtfile)
@@ -210,7 +210,7 @@ def extract_source_photons(evtfile, regfile, outfile, obsid, emin=300, emax=8000
     _save_photons(outfile, time[sel], energy[sel], obsid)
 
 
-def extract_background_photons(evtfile, bkg_regfile, outfile, obsid, emin=300, emax=8000):
+def extract_background_photons(evtfile, bkg_regfile, outfile, obsid, emin=500, emax=8000):
     """Extract background photons in annulus and outside exclusion circles."""
     (x0, y0, rin, rout), exclusions = _read_annulus_with_exclusions(bkg_regfile)
     time, x, y, energy = _load_event_columns(evtfile)

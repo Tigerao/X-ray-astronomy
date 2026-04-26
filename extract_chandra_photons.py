@@ -29,8 +29,8 @@ def _default_paths(base: Path):
 
 def _prepare_all_source_geometry(xdata_dir: Path, obsid: int, srcids, ras, decs, pixel_scale_arcsec=0.492):
     """Optional helper: derive per-source (x,y,r_pix) list for exclusion circles."""
-    img_file = xdata_dir / f"img_{obsid}_300_8000.fits"
-    psf_file = xdata_dir / f"reproj_psf90_{obsid}_300_8000.fits"
+    img_file = xdata_dir / f"img_{obsid}_500_8000.fits"
+    psf_file = xdata_dir / f"reproj_psf90_{obsid}_500_8000.fits"
     if not (img_file.exists() and psf_file.exists()):
         return None
 
@@ -204,7 +204,7 @@ def build_parser():
     p_ext = sub.add_parser("extract", help="Extract source/background photons into txt files")
     add_common(p_ext, need_sources=True)
     p_ext.add_argument("--ecf", type=int, default=90)
-    p_ext.add_argument("--emin", type=float, default=300)
+    p_ext.add_argument("--emin", type=float, default=500)
     p_ext.add_argument("--emax", type=float, default=8000)
     p_ext.set_defaults(func=cmd_extract)
 
@@ -221,7 +221,7 @@ def build_parser():
     p_all = sub.add_parser("all", help="Run make-regions -> extract -> epoch -> merge")
     add_common(p_all, need_sources=True)
     p_all.add_argument("--ecf", type=int, default=90)
-    p_all.add_argument("--emin", type=float, default=300)
+    p_all.add_argument("--emin", type=float, default=500)
     p_all.add_argument("--emax", type=float, default=8000)
     p_all.add_argument("--src-radius-factor", type=float, default=1.0)
     p_all.add_argument("--bkg-inner-factor", type=float, default=2.0)
