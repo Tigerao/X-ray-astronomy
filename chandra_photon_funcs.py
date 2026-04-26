@@ -113,8 +113,8 @@ def write_src_bkg_regions_for_obs(
     xdata_dir = Path(xdata_dir)
     timing_reg_dir = Path(timing_reg_dir)
 
-    img_file = xdata_dir / f"img_{obsid}_500_8000.fits"
-    psf_file = xdata_dir / f"reproj_psf90_{obsid}_500_8000.fits"
+    img_file = xdata_dir / f"img_{obsid}_300_8000.fits"
+    psf_file = xdata_dir / f"reproj_psf90_{obsid}_300_8000.fits"
 
     if not img_file.exists():
         raise FileNotFoundError(f"Missing image file for WCS: {img_file}")
