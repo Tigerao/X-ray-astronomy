@@ -7,8 +7,10 @@ BASE="/data/home/tiger/chandra/course"
 XDATA_DIR="${BASE}/merge_data/xdata"
 LOGFILE="${XDATA_DIR}/acis_course_modular.log"
 
-BARY_RA="${BARY_RA:-23.462042}"
-BARY_DEC="${BARY_DEC:-30.660222}"
+# barycenter coordinates (deg)
+: "${BARY_RA:=85.83383}"
+: "${BARY_DEC:=-41.03175}"
+
 PIX_ADJ="edser"
 PSF_ENERGY_KEV="2.3"
 PSF_ECF="0.9"
