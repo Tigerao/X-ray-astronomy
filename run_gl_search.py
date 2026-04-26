@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run independent unbinned GL-like period search from Chandra TXT timing products."""
+"""Run independent unbinned exact Gregory-Loredo odds period search from Chandra TXT timing products."""
 
 from __future__ import annotations
 
@@ -51,38 +51,133 @@ def _dither_warning(best_period):
     return sorted(set(msgs))
 
 
-def _gl_like_stat_for_hist(counts):
-    """Poisson deviance vs constant-rate model with BIC-like penalty."""
-    n = counts.astype(float)
-    ntot = np.sum(n)
-    m = len(n)
-    if ntot <= 0 or m < 2:
-        return -np.inf
-    mu = ntot / m
-    with np.errstate(divide="ignore", invalid="ignore"):
-        term = np.where(n > 0, n * np.log(n / mu), 0.0)
-    llr = 2.0 * np.sum(term)
-    bic_penalty = (m - 1) * np.log(max(ntot, 2.0))
-    return float(llr - bic_penalty)
+def _precompute_log_factorial(nmax):
+    f = np.zeros(nmax + 1, dtype=float)
+    for i in range(2, nmax + 1):
+        f[i] = f[i - 1] + np.log(i)
+    return f
 
 
-def _search_gl_like(times, freq, mmax, tref):
-    stats = np.full(len(freq), np.nan)
-    best_m = np.full(len(freq), -1, dtype=int)
+def _compute_bin_counts(times, m, w, phi):
+    phase = np.mod(w * times + phi, 2.0 * np.pi) / (2.0 * np.pi)
+    idx = np.floor(m * phase).astype(int)
+    idx = np.clip(idx, 0, m - 1)
+    return np.bincount(idx, minlength=m).astype(int)
 
-    for i, f in enumerate(freq):
-        phase = ((times - tref) * f) % 1.0
-        smax = -np.inf
-        mopt = -1
-        for m in range(2, mmax + 1):
-            hist, _ = np.histogram(phase, bins=np.linspace(0, 1, m + 1))
-            s = _gl_like_stat_for_hist(hist)
-            if s > smax:
-                smax = s
-                mopt = m
-        stats[i] = smax
-        best_m[i] = mopt
-    return stats, best_m
+
+def _compute_factor(N, m, v):
+    # log( m^N * (m-1)! / ((N+m-1)! * 2*pi*v) )
+    f1 = N * np.log(m)
+    f2 = np.sum(np.log(np.arange(1, N + m)))
+    f3 = np.sum(np.log(np.arange(1, m))) if m > 1 else 0.0
+    return f1 + f3 - f2 - np.log(2.0 * np.pi * v)
+
+
+def _get_T_in_mbins(epoch_info, w, m, phi):
+    tstart = np.asarray(epoch_info["tstart"], dtype=float)
+    tstop = np.asarray(epoch_info["tstop"], dtype=float)
+    T = 2.0 * np.pi / w
+    tbin = T / m
+    T_in = np.zeros(m, dtype=float)
+
+    nstart = tstart / tbin + m * phi / (2.0 * np.pi)
+    nstop = tstop / tbin + m * phi / (2.0 * np.pi)
+    istart = np.floor(nstart).astype(int) + 1
+    istop = np.floor(nstop).astype(int)
+
+    for i in range(len(nstart)):
+        if istop[i] >= istart[i]:
+            T_in += int((istop[i] - istart[i]) / m) * tbin
+            T_in[(istart[i] % m) - 1] += (istart[i] - nstart[i]) * tbin
+            T_in[istop[i] % m] += (nstop[i] - istop[i]) * tbin
+            rest = (istop[i] - istart[i]) % m
+            for k in range(rest):
+                T_in[(istart[i] + k) % m] += tbin
+        else:
+            T_in[(istart[i] % m) - 1] += (nstop[i] - nstart[i]) * tbin
+    return T_in
+
+
+def _compute_ln_S(epoch_info, times, w, m, phi):
+    n = _compute_bin_counts(times, m, w, phi).astype(float)
+    tau = _get_T_in_mbins(epoch_info, w, m, phi)
+    tau_norm = tau / (np.sum(tau) / m)
+    tau_norm = np.clip(tau_norm, 1e-300, None)
+    return -np.sum(n * np.log(tau_norm))
+
+
+def _compute_om1_single_w(times, epoch_info, m, w, log_factor, log_fact, ni):
+    pgrid = np.arange(ni, dtype=float) / float(ni) * 2.0 * np.pi / m
+    vals = np.zeros_like(pgrid)
+    for i, phi in enumerate(pgrid):
+        n = _compute_bin_counts(times, m, w, phi)
+        log_mult = np.sum(log_fact[n])
+        ln_s = _compute_ln_S(epoch_info, times, w, m, phi)
+        vals[i] = np.exp(log_mult + log_factor + ln_s)
+    return np.trapz(vals, pgrid) * m
+
+
+def compute_gl_exact(times, epoch_info, w_range, m_max=12, ni=10):
+    N = len(times)
+    if N <= 0:
+        raise ValueError("No events for GL search")
+    if m_max < 2:
+        raise ValueError("m_max must be >=2")
+
+    v = m_max - 1
+    log_fact = _precompute_log_factorial(N)
+    factors = np.array([_compute_factor(N, m, v) for m in range(1, m_max + 1)], dtype=float)
+
+    Om1w = np.zeros((m_max, len(w_range)), dtype=float)
+    for mi, m in enumerate(range(1, m_max + 1)):
+        for wi, w in enumerate(w_range):
+            Om1w[mi, wi] = _compute_om1_single_w(times, epoch_info, m, w, factors[mi], log_fact, ni)
+
+    w_lo = np.min(w_range)
+    w_hi = np.max(w_range)
+    pw = 1.0 / (w_range * np.log(w_hi / w_lo))
+
+    O1m = np.array([np.trapz(pw * Om1w[mi], w_range) for mi in range(m_max)], dtype=float)
+    # periodic vs constant model (exclude m=1 term)
+    O_period = float(np.sum(O1m[1:]))
+    p_period = float(O_period / (1.0 + O_period))
+
+    m_opt_global = int(np.argmax(O1m)) + 1
+
+    # Spectral probability for optimal m
+    S_raw = Om1w[m_opt_global - 1] / w_range
+    C = np.trapz(S_raw, w_range)
+    S = S_raw / C if C > 0 else np.full_like(S_raw, np.nan)
+
+    cdf = np.zeros_like(S)
+    for i in range(len(S)):
+        cdf[i] = np.trapz(S[: i + 1], w_range[: i + 1])
+
+    w_peak = float(w_range[int(np.nanargmax(S))])
+    w_mean = float(np.trapz(S * w_range, w_range))
+
+    wr = w_range[(cdf > 0.025) & (cdf < 0.975)]
+    if len(wr) > 0:
+        w_conf = [float(np.min(wr)), float(np.max(wr))]
+    else:
+        dw = w_range[1] - w_range[0] if len(w_range) > 1 else 0.0
+        w_conf = [float(w_peak - dw), float(w_peak + dw)]
+
+    best_m_per_w = np.argmax(Om1w, axis=0) + 1
+
+    return {
+        "O_period": O_period,
+        "p_period": p_period,
+        "m_opt_global": m_opt_global,
+        "S": S,
+        "w": w_range,
+        "w_peak": w_peak,
+        "w_mean": w_mean,
+        "w_conf": w_conf,
+        "cdf": cdf,
+        "Om1w": Om1w,
+        "best_m_per_w": best_m_per_w,
+    }
 
 
 def _simulate_uniform_in_epochs(n, tstart, tstop, rng):
@@ -127,6 +222,7 @@ def main():
     parser.add_argument("--mmax", type=int, default=12)
     parser.add_argument("--nphase", type=int, default=16)
     parser.add_argument("--nsim", type=int, default=0)
+    parser.add_argument("--ni", type=int, default=10, help="phase-offset integration steps for exact GL")
     args = parser.parse_args()
 
     t_run0 = time.perf_counter()
@@ -139,23 +235,26 @@ def main():
     bkg = filter_time_by_epochs(filter_energy(load_photon_txt(paths["bkg"]), args.emin, args.emax), epochs)
 
     summary = summarize_timing_data(src, bkg, epochs)
-    summary.update({
-        "method": "GL-like",
-        "is_exact_gregory_loredo": False,
-        "srcid": str(args.srcid),
-        "emin": args.emin,
-        "emax": args.emax,
-        "pmin": args.pmin,
-        "pmax": args.pmax,
-        "oversample": args.oversample,
-        "mmax": args.mmax,
-        "nphase": args.nphase,
-        "nsim": args.nsim,
-        "warnings": ["This is a GL-like period search, not a full Gregory-Loredo odds-ratio implementation."],
-    })
+    summary.update(
+        {
+            "method": "Gregory-Loredo exact odds",
+            "is_exact_gregory_loredo": True,
+            "srcid": str(args.srcid),
+            "emin": args.emin,
+            "emax": args.emax,
+            "pmin": args.pmin,
+            "pmax": args.pmax,
+            "oversample": args.oversample,
+            "mmax": args.mmax,
+            "nphase": args.nphase,
+            "nsim": args.nsim,
+            "ni": args.ni,
+            "warnings": [],
+        }
+    )
 
     if summary["n_source_events"] == 0:
-        raise RuntimeError("No source events remain after filtering; cannot run GL-like search.")
+        raise RuntimeError("No source events remain after filtering; cannot run GL search.")
 
     t = np.asarray(src["time"], dtype=float)
     baseline = summary["baseline_s"]
@@ -166,14 +265,14 @@ def main():
         summary["warnings"].append(msg)
 
     freq = _get_frequency_grid(baseline, args.pmin, args.pmax, args.oversample)
-    tref = np.min(epochs["tstart"])
+    w = 2.0 * np.pi * freq
 
-    gl_stat, best_m = _search_gl_like(t, freq, args.mmax, tref)
-
-    i = int(np.nanargmax(gl_stat))
-    best_freq = float(freq[i])
-    best_period = 1.0 / best_freq
-    best_stat = float(gl_stat[i])
+    gl = compute_gl_exact(t, epochs, w, m_max=args.mmax, ni=args.ni)
+    S = gl["S"]
+    best_i = int(np.nanargmax(S))
+    best_w = float(gl["w_peak"])
+    best_period = float(2.0 * np.pi / best_w)
+    best_freq = float(best_w / (2.0 * np.pi))
 
     if summary["total_exposure_s"] / best_period < 3:
         msg = "total exposure covers fewer than 3 cycles at best period"
@@ -191,18 +290,17 @@ def main():
     empirical_fap = None
     if args.nsim > 0:
         rng = np.random.default_rng(12345)
-        max_stats = []
+        max_s = []
         for _ in range(args.nsim):
             tsim = _simulate_uniform_in_epochs(len(t), epochs["tstart"], epochs["tstop"], rng)
-            sim_stat, _ = _search_gl_like(tsim, freq, args.mmax, tref)
-            max_stats.append(np.nanmax(sim_stat))
-        max_stats = np.asarray(max_stats)
-        empirical_fap = float(np.mean(max_stats >= best_stat))
+            gl_sim = compute_gl_exact(tsim, epochs, w, m_max=args.mmax, ni=args.ni)
+            max_s.append(np.nanmax(gl_sim["S"]))
+        empirical_fap = float(np.mean(np.asarray(max_s) >= np.nanmax(S)))
 
     period = 1.0 / freq
     np.savetxt(
         outdir / f"src_{args.srcid}_gl_periodogram.txt",
-        np.column_stack([freq, period, gl_stat, best_m]),
+        np.column_stack([freq, period, S, gl["best_m_per_w"]]),
         header="frequency period gl_stat best_m",
     )
 
@@ -220,42 +318,17 @@ def main():
     )
 
     runtime_s = float(time.perf_counter() - t_run0)
-    w = 2.0 * np.pi * freq
-    wpeak = float(w[i])
-    period_from_wpeak = float(2.0 * np.pi / wpeak)
-
-    # Weight-based mean/confidence interval from non-negative GL-like stats
-    sshift = gl_stat - np.nanmin(gl_stat)
-    sshift = np.clip(sshift, 0.0, None)
-    if np.sum(sshift) > 0:
-        wmean = float(np.sum(w * sshift) / np.sum(sshift))
-        cdf = np.cumsum(sshift / np.sum(sshift))
-        i_lo = int(np.searchsorted(cdf, 0.025))
-        i_hi = int(np.searchsorted(cdf, 0.975))
-        i_lo = min(max(i_lo, 0), len(w) - 1)
-        i_hi = min(max(i_hi, 0), len(w) - 1)
-        wconf_lo = float(w[i_lo])
-        wconf_hi = float(w[i_hi])
-    else:
-        wmean = None
-        wconf_lo = None
-        wconf_hi = None
-
-    if empirical_fap is not None:
-        prob = float(max(0.0, 1.0 - empirical_fap))
-    else:
-        prob = None
-
+    prob = float(gl["p_period"])
     result_row = [
         int(args.srcid),
         runtime_s,
         prob,
-        period_from_wpeak,
-        wpeak,
-        wmean,
-        int(best_m[i]),
-        wconf_lo,
-        wconf_hi,
+        float(2.0 * np.pi / gl["w_peak"]),
+        float(gl["w_peak"]),
+        float(gl["w_mean"]),
+        int(gl["m_opt_global"]),
+        float(gl["w_conf"][0]),
+        float(gl["w_conf"][1]),
         int(summary["n_source_events"]),
     ]
 
@@ -263,11 +336,17 @@ def main():
         {
             "best_frequency_hz": best_freq,
             "best_period_s": best_period,
-            "best_gl_stat": best_stat,
-            "best_m": int(best_m[i]),
+            "best_gl_stat": float(np.nanmax(S)),
+            "best_m": int(gl["best_m_per_w"][best_i]),
+            "m_opt_global": int(gl["m_opt_global"]),
             "n_freq": int(len(freq)),
             "empirical_fap": empirical_fap,
             "runtime_s": runtime_s,
+            "O_period": float(gl["O_period"]),
+            "p_period": float(gl["p_period"]),
+            "w_peak": float(gl["w_peak"]),
+            "w_mean": float(gl["w_mean"]),
+            "w_conf": [float(gl["w_conf"][0]), float(gl["w_conf"][1])],
             "result_vector": result_row,
             "result_vector_definition": [
                 "srcid", "runtime_s", "Prob", "2pi_over_wpeak_s", "wpeak_rad_s",
@@ -285,9 +364,9 @@ def main():
     )
 
     fig = plt.figure(figsize=(8, 5))
-    plt.plot(period, gl_stat, lw=1)
+    plt.plot(period, S, lw=1)
     plt.xlabel("Period (s)")
-    plt.ylabel("GL-like statistic")
+    plt.ylabel("GL odds spectral probability")
     if args.pmax / args.pmin > 20:
         plt.xscale("log")
     plt.tight_layout()
