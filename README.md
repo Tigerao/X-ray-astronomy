@@ -10,9 +10,9 @@ bash acis_course_modular.sh all 23603
 
 This generates required old-style files in:
 
-- `/data/home/tiger/chandra/course/merge_data/xdata/all_bcc_23603_reproj_evt.fits`
-- `/data/home/tiger/chandra/course/merge_data/xdata/reproj_psf90_23603_500_8000.fits`
-- `/data/home/tiger/chandra/course/merge_data/xdata/reproj_expmap_23603_500_8000.fits`
+- `/data/home/tiger/chandra/course/merge_data/xdata/all_bcc_23603_evt.fits`
+- `/data/home/tiger/chandra/course/merge_data/xdata/psf90_23603_500_8000.fits`
+- `/data/home/tiger/chandra/course/merge_data/xdata/expmap_23603_500_8000.fits`
 - `/data/home/tiger/chandra/course/merge_data/xdata/img_23603_500_8000.fits`
 
 ### 2) Extract photons

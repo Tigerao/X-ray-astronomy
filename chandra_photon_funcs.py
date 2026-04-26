@@ -113,8 +113,8 @@ def write_src_bkg_regions_for_obs(
     xdata_dir = Path(xdata_dir)
     timing_reg_dir = Path(timing_reg_dir)
 
-    img_file = xdata_dir / f"img_{obsid}_300_8000.fits"
-    psf_file = xdata_dir / f"reproj_psf90_{obsid}_300_8000.fits"
+    img_file = xdata_dir / f"img_{obsid}_500_8000.fits"
+    psf_file = xdata_dir / f"psf90_{obsid}_500_8000.fits"
 
     if not img_file.exists():
         raise FileNotFoundError(f"Missing image file for WCS: {img_file}")
@@ -234,7 +234,7 @@ def make_epoch_file(obsids, xdata_dir, outfile):
     rows = []
 
     for obsid in obsids:
-        evt = xdata_dir / f"all_bcc_{obsid}_reproj_evt.fits"
+        evt = xdata_dir / f"all_bcc_{obsid}_evt.fits"
         if not evt.exists():
             continue
         with fits.open(evt) as hdul:

@@ -66,7 +66,7 @@ do_expmap(){
   [[ -n "$expmap_tmp" ]] || err "fluximage did not produce expmap in $OBS_WORK_DIR"
 
   IMG_OUT="${XDATA_DIR}/img_${OBSID}_500_8000.fits"
-  EXPMAP_OUT="${XDATA_DIR}/reproj_expmap_${OBSID}_500_8000.fits"
+  EXPMAP_OUT="${XDATA_DIR}/expmap_${OBSID}_500_8000.fits"
 
   dmcopy "${EVT_REPRO}[energy=${BAND_MIN}:${BAND_MAX}][bin x=::1,y=::1]" "$IMG_OUT" clobber=yes
   dmcopy "$expmap_tmp" "$EXPMAP_OUT" clobber=yes
@@ -76,9 +76,9 @@ do_expmap(){
 }
 
 do_psfmap(){
-  EXPMAP_OUT="${XDATA_DIR}/reproj_expmap_${OBSID}_500_8000.fits"
+  EXPMAP_OUT="${XDATA_DIR}/expmap_${OBSID}_500_8000.fits"
   [[ -f "$EXPMAP_OUT" ]] || err "Missing $EXPMAP_OUT. Run expmap first."
-  PSFMAP_OUT="${XDATA_DIR}/reproj_psf90_${OBSID}_500_8000.fits"
+  PSFMAP_OUT="${XDATA_DIR}/psf90_${OBSID}_500_8000.fits"
 
   msg "ObsID $OBSID: mkpsfmap (non-interactive), infile=$EXPMAP_OUT"
   punlearn mkpsfmap
@@ -98,7 +98,7 @@ do_psfmap(){
 do_bary(){
   find_repro_inputs
   [[ -n "$ORBIT" ]] || err "No orbit*eph1.fits found under $OBS_DIR"
-  BARY_OUT="${XDATA_DIR}/all_bcc_${OBSID}_reproj_evt.fits"
+  BARY_OUT="${XDATA_DIR}/all_bcc_${OBSID}_evt.fits"
 
   msg "ObsID $OBSID: axbary for timing (output uses required final filename)"
   axbary infile="$EVT_REPRO" outfile="$BARY_OUT" orbitfile="$ORBIT" \
@@ -111,9 +111,9 @@ do_bary(){
 status(){
   echo "repro evt2: $(find "$REPRO_DIR" -maxdepth 1 -name '*_repro_evt2.fits' | head -n 1 || true)"
   echo "xdata final products:"
-  echo "  ${XDATA_DIR}/all_bcc_${OBSID}_reproj_evt.fits"
-  echo "  ${XDATA_DIR}/reproj_psf90_${OBSID}_500_8000.fits"
-  echo "  ${XDATA_DIR}/reproj_expmap_${OBSID}_500_8000.fits"
+  echo "  ${XDATA_DIR}/all_bcc_${OBSID}_evt.fits"
+  echo "  ${XDATA_DIR}/psf90_${OBSID}_500_8000.fits"
+  echo "  ${XDATA_DIR}/expmap_${OBSID}_500_8000.fits"
   echo "  ${XDATA_DIR}/img_${OBSID}_500_8000.fits"
 }
 

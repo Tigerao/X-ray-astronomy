@@ -30,7 +30,7 @@ def _default_paths(base: Path):
 def _prepare_all_source_geometry(xdata_dir: Path, obsid: int, srcids, ras, decs, pixel_scale_arcsec=0.492):
     """Optional helper: derive per-source (x,y,r_pix) list for exclusion circles."""
     img_file = xdata_dir / f"img_{obsid}_500_8000.fits"
-    psf_file = xdata_dir / f"reproj_psf90_{obsid}_500_8000.fits"
+    psf_file = xdata_dir / f"psf90_{obsid}_500_8000.fits"
     if not (img_file.exists() and psf_file.exists()):
         return None
 
@@ -101,7 +101,7 @@ def cmd_extract(args):
     n_warn = 0
 
     for obsid in args.obsids:
-        evtfile = xdata_dir / f"all_bcc_{obsid}_reproj_evt.fits"
+        evtfile = xdata_dir / f"all_bcc_{obsid}_evt.fits"
         per_obs_txt = txt_dir / f"txt_{obsid}{suffix}"
         per_obs_txt.mkdir(parents=True, exist_ok=True)
 
