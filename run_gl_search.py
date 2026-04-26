@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import time
 import warnings
 
 import matplotlib.pyplot as plt
@@ -128,6 +129,7 @@ def main():
     parser.add_argument("--nsim", type=int, default=0)
     args = parser.parse_args()
 
+    t_run0 = time.perf_counter()
     paths = get_default_paths(args.base, args.srcid, suffix=args.suffix)
     outdir = paths["outdir"]
     outdir.mkdir(parents=True, exist_ok=True)
@@ -217,6 +219,46 @@ def main():
         header="phase counts exposure rate rate_err",
     )
 
+    runtime_s = float(time.perf_counter() - t_run0)
+    w = 2.0 * np.pi * freq
+    wpeak = float(w[i])
+    period_from_wpeak = float(2.0 * np.pi / wpeak)
+
+    # Weight-based mean/confidence interval from non-negative GL-like stats
+    sshift = gl_stat - np.nanmin(gl_stat)
+    sshift = np.clip(sshift, 0.0, None)
+    if np.sum(sshift) > 0:
+        wmean = float(np.sum(w * sshift) / np.sum(sshift))
+        cdf = np.cumsum(sshift / np.sum(sshift))
+        i_lo = int(np.searchsorted(cdf, 0.025))
+        i_hi = int(np.searchsorted(cdf, 0.975))
+        i_lo = min(max(i_lo, 0), len(w) - 1)
+        i_hi = min(max(i_hi, 0), len(w) - 1)
+        wconf_lo = float(w[i_lo])
+        wconf_hi = float(w[i_hi])
+    else:
+        wmean = None
+        wconf_lo = None
+        wconf_hi = None
+
+    if empirical_fap is not None:
+        prob = float(max(0.0, 1.0 - empirical_fap))
+    else:
+        prob = None
+
+    result_row = [
+        int(args.srcid),
+        runtime_s,
+        prob,
+        period_from_wpeak,
+        wpeak,
+        wmean,
+        int(best_m[i]),
+        wconf_lo,
+        wconf_hi,
+        int(summary["n_source_events"]),
+    ]
+
     summary.update(
         {
             "best_frequency_hz": best_freq,
@@ -225,9 +267,22 @@ def main():
             "best_m": int(best_m[i]),
             "n_freq": int(len(freq)),
             "empirical_fap": empirical_fap,
+            "runtime_s": runtime_s,
+            "result_vector": result_row,
+            "result_vector_definition": [
+                "srcid", "runtime_s", "Prob", "2pi_over_wpeak_s", "wpeak_rad_s",
+                "wmean_rad_s", "mopt", "wconf_lo_rad_s", "wconf_hi_rad_s", "counts"
+            ],
         }
     )
     save_summary_json(summary, outdir / f"src_{args.srcid}_gl_summary.json")
+
+    np.savetxt(
+        outdir / f"src_{args.srcid}_gl_result.txt",
+        np.array([result_row], dtype=object),
+        fmt="%s",
+        header="srcid runtime_s Prob 2pi_over_wpeak_s wpeak_rad_s wmean_rad_s mopt wconf_lo_rad_s wconf_hi_rad_s counts",
+    )
 
     fig = plt.figure(figsize=(8, 5))
     plt.plot(period, gl_stat, lw=1)

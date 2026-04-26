@@ -4,9 +4,8 @@
 from __future__ import annotations
 
 import argparse
-import json
+import time
 import warnings
-from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -91,6 +90,7 @@ def main():
     parser.add_argument("--nphase", type=int, default=16)
     args = parser.parse_args()
 
+    t_run0 = time.perf_counter()
     paths = get_default_paths(args.base, args.srcid, suffix=args.suffix)
     outdir = paths["outdir"]
     outdir.mkdir(parents=True, exist_ok=True)
@@ -151,6 +151,18 @@ def main():
     except Exception:
         pass
 
+    fp_levels = {}
+    for label, alpha in (("99.73%", 0.0027), ("95%", 0.05), ("68%", 0.32)):
+        try:
+            fp_levels[label] = float(
+                ls.false_alarm_level(
+                    alpha, minimum_frequency=freq[0], maximum_frequency=freq[-1], method="baluev"
+                )
+            )
+        except Exception:
+            fp_levels[label] = None
+
+
     total_exposure = summary["total_exposure_s"]
     if total_exposure / best_period < 3:
         msg = "total exposure covers fewer than 3 cycles at best period"
@@ -179,16 +191,62 @@ def main():
         outdir / f"src_{args.srcid}_ls_folded.txt", ph, rate, rate_err, csum, esum
     )
 
+    runtime_s = float(time.perf_counter() - t_run0)
+    prob_periodic = None if fap is None else float(max(0.0, 1.0 - fap))
+    wpeak = 2.0 * np.pi * best_freq
+    wmean = 2.0 * np.pi * float(np.sum(freq * power) / np.sum(power)) if np.sum(power) > 0 else None
+    # 95% confidence interval estimated from normalized LS power density over omega
+    wconf_lo = None
+    wconf_hi = None
+    pnorm = np.clip(power, 0.0, None)
+    if np.sum(pnorm) > 0:
+        pnorm = pnorm / np.sum(pnorm)
+        cdf = np.cumsum(pnorm)
+        i_lo = int(np.searchsorted(cdf, 0.025))
+        i_hi = int(np.searchsorted(cdf, 0.975))
+        i_lo = min(max(i_lo, 0), len(freq) - 1)
+        i_hi = min(max(i_hi, 0), len(freq) - 1)
+        wconf_lo = float(2.0 * np.pi * freq[i_lo])
+        wconf_hi = float(2.0 * np.pi * freq[i_hi])
+
+    result_row = [
+        int(args.srcid),
+        runtime_s,
+        prob_periodic,
+        best_period,
+        wpeak,
+        wmean,
+        int(args.nphase),
+        wconf_lo,
+        wconf_hi,
+        int(summary["n_source_events"]),
+    ]
+
     summary.update(
         {
             "best_frequency_hz": best_freq,
             "best_period_s": best_period,
             "best_power": best_power,
             "false_alarm_probability": fap,
+            "false_alarm_levels_power": fp_levels,
             "n_freq": int(len(freq)),
+            "runtime_s": runtime_s,
+            "periodic_probability_proxy": prob_periodic,
+            "result_vector": result_row,
+            "result_vector_definition": [
+                "srcid", "runtime_s", "Prob_proxy", "period_s", "wpeak_rad_s",
+                "wmean_rad_s", "mopt_or_nphase", "wconf_lo_rad_s", "wconf_hi_rad_s", "counts"
+            ],
         }
     )
     save_summary_json(summary, outdir / f"src_{args.srcid}_ls_summary.json")
+
+    np.savetxt(
+        outdir / f"src_{args.srcid}_ls_result.txt",
+        np.array([result_row], dtype=object),
+        fmt="%s",
+        header="srcid runtime_s Prob_proxy period_s wpeak_rad_s wmean_rad_s mopt_or_nphase wconf_lo_rad_s wconf_hi_rad_s counts",
+    )
 
     fig = plt.figure(figsize=(8, 5))
     plt.plot(per, power, lw=1)
@@ -196,6 +254,11 @@ def main():
     plt.ylabel("LS power")
     if args.pmax / args.pmin > 20:
         plt.xscale("log")
+    for label, val in fp_levels.items():
+        if val is not None:
+            plt.axhline(val, ls="--", lw=0.9, label=f"1-FAP {label}")
+    if any(v is not None for v in fp_levels.values()):
+        plt.legend(fontsize=8)
     plt.tight_layout()
     fig.savefig(outdir / f"src_{args.srcid}_ls_periodogram.png", dpi=150)
     plt.close(fig)
