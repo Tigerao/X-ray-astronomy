@@ -3,9 +3,9 @@
 #
 # Produces (under BASE/merge_data/xdata):
 #   all_bcc_{obsid}_reproj_evt.fits
-#   reproj_psf90_{obsid}_300_8000.fits
-#   reproj_expmap_{obsid}_300_8000.fits
-#   img_{obsid}_300_8000.fits
+#   reproj_psf90_{obsid}_500_8000.fits
+#   reproj_expmap_{obsid}_500_8000.fits
+#   img_{obsid}_500_8000.fits
 #
 # Usage:
 #   bash acis_course_modular.sh all 23603
@@ -122,9 +122,9 @@ do_expmap() {
 
   [[ -n "$EXPMAP_BROAD" ]] || err "fluximage did not produce broad-band exposure map in $OUT_DIR"
 
-  IMG_300_8000="${OUT_DIR}/img_${OBSID}_300_8000.fits"
-  msg "ObsID $OBSID: creating 0.3-8.0 keV image: $IMG_300_8000"
-  dmcopy "${EVT_REPRO}[energy=300:8000][bin x=::1,y=::1]" "$IMG_300_8000" clobber=yes
+  IMG_500_8000="${OUT_DIR}/img_${OBSID}_500_8000.fits"
+  msg "ObsID $OBSID: creating 0.3-8.0 keV image: $IMG_500_8000"
+  dmcopy "${EVT_REPRO}[energy=500:8000][bin x=::1,y=::1]" "$IMG_500_8000" clobber=yes
 
   msg "broad expmap: $EXPMAP_BROAD"
   [[ -n "$IMG_BROAD" ]] && msg "broad img from fluximage: $IMG_BROAD"
@@ -176,28 +176,28 @@ make_oldstyle_links() {
   local psfmap="${OUT_DIR}/psfmap_ecf90_${OBSID}.fits"
   local expmap
   expmap=$(find "$OUT_DIR" -maxdepth 1 -name 'flux_broad*.expmap' | head -n 1 || true)
-  local img300="${OUT_DIR}/img_${OBSID}_300_8000.fits"
+  local img500="${OUT_DIR}/img_${OBSID}_500_8000.fits"
 
   [[ -f "$bary_evt" ]] || err "Missing barycentered evt2: $bary_evt (run bary first)"
   [[ -f "$psfmap" ]] || err "Missing PSF map: $psfmap (run psfmap first)"
   [[ -n "$expmap" && -f "$expmap" ]] || err "Missing broad exposure map in $OUT_DIR (run expmap first)"
-  [[ -f "$img300" ]] || err "Missing 0.3-8.0 keV image: $img300 (run expmap first)"
+  [[ -f "$img500" ]] || err "Missing 0.3-8.0 keV image: $img500 (run expmap first)"
 
   local old_evt="${XDATA_DIR}/all_bcc_${OBSID}_reproj_evt.fits"
-  local old_psf="${XDATA_DIR}/reproj_psf90_${OBSID}_300_8000.fits"
-  local old_exp="${XDATA_DIR}/reproj_expmap_${OBSID}_300_8000.fits"
-  local old_img="${XDATA_DIR}/img_${OBSID}_300_8000.fits"
+  local old_psf="${XDATA_DIR}/reproj_psf90_${OBSID}_500_8000.fits"
+  local old_exp="${XDATA_DIR}/reproj_expmap_${OBSID}_500_8000.fits"
+  local old_img="${XDATA_DIR}/img_${OBSID}_500_8000.fits"
 
   ln -sfn "$bary_evt" "$old_evt"
   ln -sfn "$psfmap" "$old_psf"
   ln -sfn "$expmap" "$old_exp"
-  ln -sfn "$img300" "$old_img"
+  ln -sfn "$img500" "$old_img"
 
   msg "Created/updated old-style links:"
   msg "  $old_evt -> $bary_evt"
   msg "  $old_psf -> $psfmap"
   msg "  $old_exp -> $expmap"
-  msg "  $old_img -> $img300"
+  msg "  $old_img -> $img500"
 }
 
 status() {
@@ -224,7 +224,7 @@ Usage: bash $0 <task> <obsid>
 Tasks:
   all     : repro + expmap + psfmap + bary + links
   repro   : run chandra_repro
-  expmap  : run fluximage (broad 0.5-7.0 keV) and create img_{obsid}_300_8000.fits
+  expmap  : run fluximage (broad 0.5-7.0 keV) and create img_{obsid}_500_8000.fits
   psfmap  : run mkpsfmap using fluximage broad exposure map
   bary    : run axbary on repro evt2 for timing products
   links   : create/update required old-style filenames in xdata/
@@ -275,9 +275,9 @@ main() {
 
   msg "Final product paths for ObsID $obsid:"
   echo "  ${XDATA_DIR}/all_bcc_${obsid}_reproj_evt.fits"
-  echo "  ${XDATA_DIR}/reproj_psf90_${obsid}_300_8000.fits"
-  echo "  ${XDATA_DIR}/reproj_expmap_${obsid}_300_8000.fits"
-  echo "  ${XDATA_DIR}/img_${obsid}_300_8000.fits"
+  echo "  ${XDATA_DIR}/reproj_psf90_${obsid}_500_8000.fits"
+  echo "  ${XDATA_DIR}/reproj_expmap_${obsid}_500_8000.fits"
+  echo "  ${XDATA_DIR}/img_${obsid}_500_8000.fits"
   msg "DONE task=$task obsid=$obsid"
 }
 
