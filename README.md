@@ -78,19 +78,20 @@ python run_ls_search.py \
     --dt 50
 ```
 
-### GL-like (unbinned events)
+### Gregory–Loredo exact odds (unbinned events)
 ```bash
 python run_gl_search.py \
     --base /data/home/tiger/chandra/course \
     --srcid 1 \
     --pmin 100 \
     --pmax 20000 \
-    --mmax 12
+    --mmax 12 \
+    --ni 10
 ```
 
 ## Notes and interpretation
 - `run_ls_search.py` uses **binned** light curves (`counts/exposure_per_bin`) and runs `astropy.timeseries.LombScargle`.
-- `run_gl_search.py` uses **unbinned event phases** and a practical **GL-like** periodicity statistic (not full Gregory–Loredo odds unless explicitly implemented).
+- `run_gl_search.py` now uses the **exact Gregory–Loredo odds** style workflow (unbinned phases, m-bin odds integration with phase-offset integration step `--ni`).
 - The two scripts are independent and should be run independently (no wrapper needed).
 - Compare best periods with literature values for your source before claiming a detection.
 - Always inspect possible instrumental aliases near Chandra dither periods **706.96 s** and **999.96 s** (plus harmonics/subharmonics).
