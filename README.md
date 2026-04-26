@@ -20,7 +20,9 @@
 ```bash
 # CIAO 环境
 ciao
-
+conda activate ciao-4.18
+.....
+** 在运行之前先启动环境 ** 
 # 如果要用 ftgrouppha，还需 HEASoft 环境（按你的机器实际安装方式加载）
 # 例如：source /path/to/heasoft-init.sh
 ```
@@ -162,7 +164,11 @@ specextract \
 - `${OUTROOT}.rmf`
 
 ### 4.2 用 `ftgrouppha` 分组（bin）
-
+**
+在运行前先启动heasoft
+```heainit
+```
+**
 ```bash
 ftgrouppha \
   infile="${OUTROOT}.pi" \
