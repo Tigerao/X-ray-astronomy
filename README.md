@@ -165,9 +165,7 @@ specextract \
 
 ### 4.2 用 `ftgrouppha` 分组（bin）
 **
-在运行前先启动heasoft
-```heainit
-```
+在运行前先启动heasoft: heainit
 **
 ```bash
 ftgrouppha \
