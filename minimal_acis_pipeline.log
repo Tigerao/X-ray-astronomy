@@ -1,0 +1,43 @@
+===== 23603: chandra_repro =====
+
+Running chandra_repro
+version: 22 January 2023
+
+
+Processing input directory '/data/home/tiger/chandra/course/23603'
+
+No boresight correction update to asol file is needed.
+Resetting afterglow status bits in evt1.fits file...
+
+Running acis_build_badpix and acis_find_afterglow to create a new bad pixel file...
+
+Running acis_process_events to reprocess the evt1.fits file...
+Filtering the evt1.fits file by grade and status and time...
+Applying the good time intervals from the flt1.fits file...
+The new evt2.fits file is: /data/home/tiger/chandra/course/23603/repro/acisf23603_repro_evt2.fits
+
+Updating the event file header with chandra_repro HISTORY record
+Creating FOV file...
+
+Cleaning up intermediate files
+
+Any issues pertaining to data quality for this observation will be listed in the Comments section of the Validation and Verification report located in:
+/data/home/tiger/chandra/course/23603/repro/axaff23603N002_VV001_vv2.pdf
+
+The data have been reprocessed.
+Start your analysis with the new products in
+/data/home/tiger/chandra/course/23603/repro
+
+EVT=/data/home/tiger/chandra/course/23603/repro/acisf23603_repro_evt2.fits
+ASOL=/data/home/tiger/chandra/course/23603/repro/pcadf23603_000N002_asol1.fits
+BPIX=/data/home/tiger/chandra/course/23603/repro/acisf23603_repro_bpix1.fits
+MASK=/data/home/tiger/chandra/course/23603/repro/acisf23603_000N002_msk1.fits
+EPH=/data/home/tiger/chandra/course/23603/primary/orbitf721829105N001_eph1.fits.gz
+===== 23603: fluximage on un-barycentered repro EVT =====
+Running fluximage
+Version: 04 November 2021
+
+Using CSC ACIS broad science energy band.
+Bad-pixel file /data/home/tiger/chandra/course/23603/repro/acisf23603_repro_bpix1.fits
+pquery: cannot convert parameter value : psfecf
+[?2004hIf set, create PSF map with this ECF (0:1) (INDEF): 
