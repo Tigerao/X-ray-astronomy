@@ -132,29 +132,12 @@ python run_gl_search.py \
 > 这里使用第 2 步生成的源/背景 region，确保与时序分析口径一致。
 
 ### 4.1 用 `specextract` 抽谱（每个 ObsID、每个源各跑一次）
-
-```bash
-BASE=/data/home/tiger/chandra/course
-OBSID=23603
-SRCID=1
-
-EVT="${BASE}/merge_data/xdata/all_bcc_${OBSID}_evt.fits"
-REG="${BASE}/merge_data/timing/reg/region_${OBSID}/region_90/${SRCID}.reg"
-BKGREG="${BASE}/merge_data/timing/reg/region_${OBSID}/region_90/${SRCID}_bkg.reg"
-OUTDIR="${BASE}/merge_data/spectra/obs_${OBSID}"
-OUTROOT="${OUTDIR}/src_${SRCID}_${OBSID}"
-
-mkdir -p "${OUTDIR}"
-
-specextract \
-  infile="${EVT}[sky=region(${REG})]" \
-  bkgfile="${EVT}[sky=region(${BKGREG})]" \
-  outroot="${OUTROOT}" \
-  bkgresp=yes \
-  weight=no \
-  correctpsf=yes \
-  clobber=yes
-```
+ Example:
+   bash extract_chandra_spectra.sh all \
+     --base /data/home/tiger/chandra/course \
+     --obsids 914 \
+     --srcids 1 \
+     --ecf 90
 
 常见输出：
 
