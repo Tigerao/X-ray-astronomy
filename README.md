@@ -154,7 +154,7 @@ python run_gl_search.py \
 ftgrouppha \
   infile="${OUTROOT}.pi" \
   outfile="${OUTROOT}_grp20.pi" \
-  grouptype=optmin \
+  grouptype=min \
   groupscale=20 \
   clobber=yes
 ```
