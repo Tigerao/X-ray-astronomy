@@ -77,13 +77,73 @@ def _read_annulus_with_exclusions(regfile):
     return annulus, exclusions
 
 
-def _sample_psf_radius(psf_data, xpix, ypix):
+def _sample_psf_radius(psf_path, phy_x, phy_y, interpolation=False):
+    """
+    Sample Chandra PSF map at physical/SKY coordinates phy_x, phy_y.
+
+    Parameters
+    ----------
+    psf_path : str
+        Path to PSF map FITS image.
+    phy_x, phy_y : float
+        Chandra physical/SKY coordinates.
+    interpolation : bool
+        If True, use bilinear interpolation. Otherwise use nearest pixel.
+
+    Returns
+    -------
+    r : float
+        PSF radius sampled from the PSF map.
+    """
+
+    with fits.open(psf_path) as hdul:
+        psf_data = hdul[0].data
+        hdr = hdul[0].header
+
     ny, nx = psf_data.shape
-    xi = int(np.clip(np.rint(xpix) - 1, 0, nx - 1))
-    yi = int(np.clip(np.rint(ypix) - 1, 0, ny - 1))
-    r = float(psf_data[yi, xi])
+
+    # CIAO physical -> FITS image coordinate, 1-based
+    ltm11 = hdr.get("LTM1_1", 1.0)
+    ltv1  = hdr.get("LTV1", 0.0)
+    ltm22 = hdr.get("LTM2_2", 1.0)
+    ltv2  = hdr.get("LTV2", 0.0)
+
+    x_img = phy_x * ltm11 + ltv1
+    y_img = phy_y * ltm22 + ltv2
+
+    # FITS image coordinate is 1-based; numpy index is 0-based
+    xpix = x_img - 1.0
+    ypix = y_img - 1.0
+
+
+    if not (0 <= xpix < nx and 0 <= ypix < ny):
+        raise ValueError(
+            f"Source position is outside PSF map: "
+            f"physical=({phy_x:.2f}, {phy_y:.2f}), "
+            f"pixel=({xpix:.2f}, {ypix:.2f}), "
+            f"shape=(ny={ny}, nx={nx})"
+        )
+
+    if interpolation:
+        from scipy.ndimage import map_coordinates
+        r = float(map_coordinates(
+            psf_data,
+            [[ypix], [xpix]],
+            order=1,
+            mode="nearest"
+        )[0])
+    else:
+        ix = int(np.rint(xpix))
+        iy = int(np.rint(ypix))
+        r = float(psf_data[iy, ix])
+
     if not np.isfinite(r) or r <= 0:
-        raise ValueError(f"Invalid PSF radius sampled at pixel ({xpix:.2f}, {ypix:.2f}): {r}")
+        raise ValueError(
+            f"Invalid PSF radius sampled at "
+            f"physical=({phy_x:.2f}, {phy_y:.2f}), "
+            f"pixel=({xpix:.2f}, {ypix:.2f}): {r}"
+        )
+
     return r
 
 
@@ -137,7 +197,7 @@ def write_src_bkg_regions_for_obs(
         psf_data = np.asarray(hdul_psf[0].data, dtype=float)
         if psf_data.ndim != 2:
             raise ValueError(f"PSF map is not 2D: {psf_file}")
-        r_native = _sample_psf_radius(psf_data, xpix, ypix)
+        r_native = _sample_psf_radius(psf_file, xpix, ypix)
         r_pix = _psf_radius_to_pixels(hdul_psf[0].header, r_native, pixel_scale_arcsec=pixel_scale_arcsec)
 
     if r_pix <= 0:
