@@ -88,10 +88,18 @@ def _sample_psf_radius(psf_data, xpix, ypix):
 
 
 def _psf_radius_to_pixels(psf_header, radius_value, pixel_scale_arcsec=0.492):
-    bunit = str(psf_header.get("BUNIT", "")).strip().lower()
-    if "arcsec" in bunit:
-        return radius_value / pixel_scale_arcsec
-    return radius_value
+    """Convert a PSF-map radius from arcsec to physical image pixels.
+
+    ``mkpsfmap`` products used by this pipeline are generated with
+    ``units=arcsec`` (see ``acis_course_modular.sh``), but the FITS header
+    does not always carry a reliable ``BUNIT`` value.  DS9/CIAO physical
+    region radii written without a unit suffix are interpreted in physical
+    image pixels, so always convert the sampled PSF radius from arcsec to
+    pixels here instead of depending on ``BUNIT``.
+    """
+    if pixel_scale_arcsec <= 0:
+        raise ValueError(f"pixel_scale_arcsec must be > 0; got {pixel_scale_arcsec}")
+    return radius_value / pixel_scale_arcsec
 
 
 def write_src_bkg_regions_for_obs(
